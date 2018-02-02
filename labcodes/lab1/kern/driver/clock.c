@@ -33,7 +33,7 @@ static uint64_t timebase;
 void clock_init(void) {
     // divided by 500 when using Spike(2MHz)
     // divided by 100 when using QEMU(10MHz)
-    timebase = sbi_timebase() / 100;
+    timebase = 1e7 / 100;
     clock_set_next_event();
     set_csr(sie, MIP_STIP);
 
