@@ -109,17 +109,13 @@ size_t nr_free_pages(void) {
 
 /* pmm_init - initialize the physical memory management */
 static void page_init(void) {
-    memory_block_info info;
-    uint32_t hart_id = sbi_hart_id();
-    if (sbi_query_memory(hart_id, &info) != 0) {
-        panic("failed to get physical memory size info!\n");
-    }
+    extern char kern_entry[];
 
-    va_pa_offset = KERNBASE - info.base;
+    va_pa_offset = KERNBASE - (uint32_t)kern_entry;
 
-    uint32_t mem_begin = info.base;
-    uint32_t mem_size = info.size;
-    uint32_t mem_end = mem_begin + mem_size;
+    uint32_t mem_begin = (uint32_t)kern_entry;
+    uint32_t mem_end = (8 << 20) + DRAM_BASE; // 8MB memory on qemu
+    uint32_t mem_size = mem_end - mem_begin;
 
     cprintf("physcial memory map:\n");
     cprintf("  memory: 0x%08lx, [0x%08lx, 0x%08lx].\n", mem_size, mem_begin,
@@ -135,8 +131,9 @@ static void page_init(void) {
 
     npage = maxpa / PGSIZE;
     // BBL has put the initial page table at the first available page after the
-    // kernel so stay away from it by adding extra 2 * PGSIZE offset to it
-    pages = (struct Page*)ROUNDUP((void*)(KADDR(read_csr(sptbr) << PGSHIFT) + 2 * PGSIZE), PGSIZE);
+    // kernel
+    // so stay away from it by adding extra offset to end
+    pages = (struct Page *)ROUNDUP((void *)end, PGSIZE);
 
     for (size_t i = 0; i < npage - nbase; i++) {
         SetPageReserved(pages + i);
@@ -152,7 +149,7 @@ static void page_init(void) {
 }
 
 static void enable_paging(void) {
-    write_csr(sptbr, (uintptr_t)boot_cr3 >> PGSHIFT);
+    write_csr(satp, SATP32_MODE | (boot_cr3 >> RISCV_PGSHIFT));
 }
 
 // boot_map_segment - setup&enable the paging mechanism
@@ -234,13 +231,6 @@ void pmm_init(void) {
     // virtual_addr 3G~3G+4M = linear_addr 0~4M = linear_addr 3G~3G+4M =
     // phy_addr 0~4M
     // boot_pgdir[0] = boot_pgdir[PDX(KERNBASE)];
-
-    // IMPORTANT !!!
-    // Map last page to make SBI happy
-    pde_t *sptbr = KADDR(read_csr(sptbr) << PGSHIFT);
-    pte_t *sbi_pte = get_pte(sptbr, 0xFFFFFFFF, 0);
-    boot_map_segment(boot_pgdir, (uintptr_t)(-PGSIZE), PGSIZE,
-                     PTE_ADDR(*sbi_pte), READ_EXEC);
 
     enable_paging();
 
@@ -479,8 +469,7 @@ static void check_pgdir(void) {
 static void check_boot_pgdir(void) {
     pte_t *ptep;
     int i;
-    // This is the correct way I suppose
-    for (i = KERNBASE / PGSIZE; i < npage; i++) {
+    for (i = ROUNDDOWN(KERNBASE, PGSIZE); i < npage * PGSIZE; i += PGSIZE) {
         assert((ptep = get_pte(boot_pgdir, (uintptr_t)KADDR(i), 0)) != NULL);
         assert(PTE_ADDR(*ptep) == i);
     }
