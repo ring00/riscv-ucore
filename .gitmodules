@@ -1,9 +1,0 @@
-[submodule "riscv-pk"]
-	path = riscv-pk
-	url = https://github.com/riscv/riscv-pk.git
-[submodule "riscv-tools"]
-	path = riscv-tools
-	url = https://github.com/riscv/riscv-tools.git
-[submodule "riscv-qemu"]
-	path = riscv-qemu
-	url = https://github.com/riscv/riscv-qemu.git
