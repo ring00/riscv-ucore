@@ -283,6 +283,93 @@ pte_t *get_pte(pde_t *pgdir, uintptr_t la, bool create) {
     return &((pte_t *)KADDR(PDE_ADDR(*pdep)))[PTX(la)];
 }
 
+// get_pte - get pte and return the kernel virtual address of this pte for la
+//        - if the PT contians this pte didn't exist, alloc a page for PT
+// parameter:
+//  pgdir:  the kernel virtual base address of PDT
+//  la:     the linear address need to map
+//  create: a logical value to decide if alloc a page for PT
+// return vaule: the kernel virtual address of this pte
+pte_t *get_pte(pde_t *pgdir, uintptr_t la, bool create) {
+    /* LAB2 EXERCISE 2: YOUR CODE
+     *
+     * If you need to visit a physical address, please use KADDR()
+     * please read pmm.h for useful macros
+     *
+     * Maybe you want help comment, BELOW comments can help you finish the code
+     *
+     * Some Useful MACROs and DEFINEs, you can use them in below implementation.
+     * MACROs or Functions:
+     *   PDX(la) = the index of page directory entry of VIRTUAL ADDRESS la.
+     *   KADDR(pa) : takes a physical address and returns the corresponding
+     * kernel virtual address.
+     *   set_page_ref(page,1) : means the page be referenced by one time
+     *   page2pa(page): get the physical address of memory which this (struct
+     * Page *) page  manages
+     *   struct Page * alloc_page() : allocation a page
+     *   memset(void *s, char c, size_t n) : sets the first n bytes of the
+     * memory area pointed by s
+     *                                       to the specified value c.
+     * DEFINEs:
+     *   PTE_P           0x001                   // page table/directory entry
+     * flags bit : Present
+     *   PTE_W           0x002                   // page table/directory entry
+     * flags bit : Writeable
+     *   PTE_U           0x004                   // page table/directory entry
+     * flags bit : User can access
+     */
+    // pde_t *pdep = &pgdir[PDX(la)];
+    // if (!(*pdep & PTE_V)) {
+    //     struct Page *page;
+    //     if (!create || (page = alloc_page()) == NULL) {
+    //         return NULL;
+    //     }
+    //     set_page_ref(page, 1);
+    //     uintptr_t pa = page2pa(page);
+    //     memset(KADDR(pa), 0, PGSIZE);
+    //     // *pdep = page2pte(page, PTE_U | PTE_W | PTE_P);
+    //     *pdep = pte_create(page2ppn(page), PTE_U | PTE_V);
+    //     // *pdep = ptd_create(page2ppn(page));
+    // }
+    // return &((pte_t *)KADDR(PDE_ADDR(*pdep)))[PTX(la)];
+
+    pde_t* pdep = &pgdir[PDPX(la)];
+    pde_t* ptep = NULL;
+    if (*pdep & PTE_V) {
+        ptep = &pdep[PDX(la)];
+        if (!(*ptep & PTE_V)) {
+            struct Page *page;
+            if (!create || (page = alloc_page()) == NULL) {
+                return NULL;
+            }
+            set_page_ref(page, 1);
+            uintptr_t pa = page2pa(page);
+            memset(KADDR(pa), 0, PGSIZE);
+            *ptep = pte_create(page2ppn(page), PTE_U | PTE_V);
+        }
+    } else {
+        struct Page* page = NULL;
+        if (!create || (page = alloc_page()) == NULL) {
+            return NULL;
+        }
+        set_page_ref(page, 1);
+        uintptr_t pa = page2pa(page);
+        memset(KADDR(pa), 0, PGSIZE);
+        *pdep = pte_create(page2ppn(page), PTE_U | PTE_V);
+
+        ptep = &pdep[PDX(la)];
+
+        if (!create || (page = alloc_page()) == NULL) {
+            return NULL;
+        }
+        set_page_ref(page, 1);
+        uintptr_t pa = page2pa(page);
+        memset(KADDR(pa), 0, PGSIZE);
+        *ptep = pte_create(page2ppn(page), PTE_U | PTE_V);
+    }
+    return &((pte_t *)KADDR(PDE_ADDR(*ptep)))[PTX(la)];
+}
+
 // get_page - get related Page struct for linear address la using PDT pgdir
 struct Page *get_page(pde_t *pgdir, uintptr_t la, pte_t **ptep_store) {
     pte_t *ptep = get_pte(pgdir, la, 0);
