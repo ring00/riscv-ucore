@@ -31,17 +31,6 @@ static uintptr_t mcall_console_putchar(uint8_t ch)
   return 0;
 }
 
-void poweroff(uint16_t code)
-{
-  printm("Power off\n");
-  finisher_exit(code);
-  if (htif) {
-    htif_poweroff();
-  } else {
-    while (1) { asm volatile ("#noop\n"); }
-  }
-}
-
 void putstring(const char* s)
 {
   while (*s)
@@ -133,9 +122,6 @@ static void send_ipi_many(uintptr_t* pmask, int event)
   }
 }
 
-void redirect_trap(uintptr_t epc, uintptr_t mstatus, uintptr_t badaddr);
-
-
 void mcall_trap(uintptr_t* regs, uintptr_t mcause, uintptr_t mepc)
 {
   write_csr(mepc, mepc + 4);
@@ -177,7 +163,6 @@ send_ipi:
 #endif
       break;
     default:
-      redirect_trap(read_csr(mepc), read_csr(mstatus), read_csr(mbadaddr));
       retval = -ENOSYS;
       break;
   }
@@ -231,5 +216,17 @@ void trap_from_machine_mode(uintptr_t* regs, uintptr_t dummy, uintptr_t mepc)
       return machine_page_fault(regs, dummy, mepc);
     default:
       bad_trap(regs, dummy, mepc);
+  }
+}
+
+void poweroff(uint16_t code)
+{
+  printm("Power off\r\n");
+  finisher_exit(code);
+  if (htif) {
+    htif_poweroff();
+  } else {
+    send_ipi_many(0, IPI_HALT);
+    while (1) { asm volatile ("wfi\n"); }
   }
 }

@@ -33,7 +33,6 @@ int kern_init(void) {
 
     clock_init();   // init clock interrupt
     intr_enable();  // enable irq interrupt
-
     // LAB1: CAHLLENGE 1 If you try to do it, uncomment lab1_switch_test()
     // user/kernel mode switch test
     // lab1_switch_test();

@@ -53,7 +53,7 @@
 #define PGADDR(p, d, t, o) ((uintptr_t)((p) << PDPXSHIFT | (d) << PDXSHIFT | (t) << PTXSHIFT | (o)))
 
 // address in page table or page directory entry
-#define PTE_ADDR(pte)   ((uintptr_t)(pte) & 0x3FFFFFFFFFFC00)
+#define PTE_ADDR(pte)   (((uintptr_t)(pte) & 0x3FFFFFFFFFFC00) << 2)
 #define PDE_ADDR(pde)   PTE_ADDR(pde)
 #define PDPE_ADDR(pdpe) PDE_ADDR(pdpe)
 
